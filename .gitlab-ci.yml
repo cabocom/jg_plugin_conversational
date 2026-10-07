@@ -1,0 +1,74 @@
+stages:
+  - lint
+  - test
+  - build
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  PYTHONUNBUFFERED: "1"
+
+default:
+  image: python:3.12-slim
+  cache:
+    key: "python-pip-${CI_COMMIT_REF_SLUG}"
+    paths:
+      - .cache/pip
+
+# ==========================================
+# STAGE: LINT
+# ==========================================
+lint:ruff:
+  stage: lint
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install ruff
+  script:
+    - echo "🔍 Ejecutando análisis estático con Ruff..."
+    - ruff check .
+    - echo "🎨 Verificando formato de código..."
+    - ruff format --check .
+
+# ==========================================
+# STAGE: TEST
+# ==========================================
+test:pytest:
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install -e .[dev]
+  script:
+    - echo "🧪 Ejecutando suite de tests unitarios..."
+    - pytest tests/
+
+# ==========================================
+# STAGE: BUILD
+# ==========================================
+build:package:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install build
+  script:
+    - echo "📦 Compilando paquete Python..."
+    - python -m build
+  artifacts:
+    name: "dist-$CI_COMMIT_REF_SLUG"
+    paths:
+      - dist/
+    expire_in: 1 week
