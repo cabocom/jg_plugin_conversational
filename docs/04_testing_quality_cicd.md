@@ -19,3 +19,4 @@ El script `scripts/check.sh` y el pipeline en GitLab ejecutan:
 1. `ruff check .` y `ruff format --check .`
 2. `pytest tests/`
 3. Empaquetado de biblioteca `python -m build`.
+

@@ -44,3 +44,4 @@ Forma parte del modelo **Open-Core**:
 - Implementa `BasePlugin` de `jg_agente_sdk`.
 - Cero dependencias de `jg_agente` (`app.*`).
 - Entry-point registrado en `pyproject.toml` bajo `jg_agente.plugins` con el nombre `conversational`.
+

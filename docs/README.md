@@ -14,3 +14,4 @@ Bienvenido a la documentación oficial de **`jg_plugin_conversational`**, plugin
    - Guardián autónomo anti-SSRF (`ssrf_guard.py`), DNS Pinning y aislamiento de red en Docker.
 4. **[04. Testing, Calidad y CI/CD](04_testing_quality_cicd.md)**
    - Suite unitaria Pytest y pipeline de CI/CD.
+

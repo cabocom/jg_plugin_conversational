@@ -22,3 +22,4 @@ En `docker-compose.yml`, el servicio `jg_agente_conversacional`:
 - No monta el socket de Docker (`/var/run/docker.sock`).
 - Solo expone el puerto HTTP `8001` hacia la red interna `jg_network`.
 - Tiene una base de datos PostgreSQL dedicada en `jg_agente_postgres` (5433), aislada de las bases de datos de DevOps y DatosGob.
+

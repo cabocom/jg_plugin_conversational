@@ -21,3 +21,4 @@ El plugin provee dos herramientas informativas de solo lectura (`RiskLevel.LOW`)
 - **Reversibilidad:** No
 - **Propósito:** Recupera titulares informativos recientes agrupados por temática (nacional, economía, tecnología).
 - **Implementación:** Ingesta y parseo de feeds RSS oficiales (Europa Press u homólogos) con sanitización de contenido XML y límite estricto de artículos devueltos.
+
