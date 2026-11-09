@@ -1,6 +1,23 @@
 > ⚠️ **Nota:** Este repositorio es un *mirror* público sincronizado automáticamente desde [GitLab](https://gitlab.com/javiergalvez-ia). El desarrollo activo, pipelines CI/CD, *issues* y discusiones técnicas se gestionan en https://gitlab.com/javiergalvez-ia
 
-# jg_plugin_conversational
+<div align="center">
+
+# 💬 `jg_plugin_conversational`
+
+### Plugin Conversacional Oficial para `jg_agente`
+*Clima Geocodificado, Titulares RSS Seguros y Blindaje Anti-SSRF con DNS Pinning*
+
+[![GitLab CI/CD](https://img.shields.io/badge/GitLab_CI-Pipeline_Passing-108548?style=flat-square&logo=gitlab&logoColor=white)](https://gitlab.com/javiergalvez-ia/jg_plugin_conversational)
+[![Mirror to GitHub](https://img.shields.io/badge/GitHub-Mirror_Active-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/cabocom/jg_plugin_conversational)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![SDK](https://img.shields.io/badge/SDK-jg--agente--sdk-e92063?style=flat-square)](https://pypi.org/project/jg-agente-sdk/)
+[![Security](https://img.shields.io/badge/Security-SSRF_%26_DNS_Pinning-crimson?style=flat-square&logo=shield&logoColor=white)](#1-características)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=flat-square)](https://github.com/astral-sh/ruff)
+[![Tests](https://img.shields.io/badge/Tests-25_passing-success?style=flat-square&logo=pytest&logoColor=white)](#1-características)
+
+</div>
+
+---
 
 Plugin conversacional oficial (clima y noticias RSS) para la plataforma **jg_agente**, desarrollado y distribuido de forma desacoplada utilizando los contratos formales de **`jg-agente-sdk`**.
 
