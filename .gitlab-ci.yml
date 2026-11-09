@@ -2,6 +2,7 @@ stages:
   - lint
   - test
   - build
+  - deploy
 
 variables:
   PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
@@ -99,4 +100,39 @@ build:docker:
     - export PATH="/tmp/sdk_env/bin:$PATH"
     - echo "🛠️ Construyendo y publicando imagen Docker del plugin con CLI jg..."
     - jg plugin build --push
+
+# ==========================================
+# STAGE: DEPLOY (Mirror Público a GitHub)
+# ==========================================
+sync_to_github:
+  stage: deploy
+  image: alpine/git:latest
+  variables:
+    GIT_STRATEGY: clone
+    GIT_DEPTH: "0"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+  script:
+    - |
+      if [ -z "${GITHUB_TOKEN:-}" ]; then
+        echo "⚠️ GITHUB_TOKEN no definido. Omitiendo sincronización con GitHub."
+        exit 0
+      fi
+    - GH_USER="${GITHUB_USER:-cabocom}"
+    - TARGET_REPO="${CI_PROJECT_NAME}"
+    - git config --global user.email "bot@javiergalvez.com"
+    - git config --global user.name "GitLab Mirror Bot"
+    - git remote remove github 2>/dev/null || true
+    - git remote add github "https://${GH_USER}:${GITHUB_TOKEN}@github.com/${GH_USER}/${TARGET_REPO}.git"
+    - git fetch origin --tags --force
+    - |
+      if [ -n "${CI_COMMIT_TAG:-}" ]; then
+        echo "🏷️ Sincronizando tag ${CI_COMMIT_TAG} hacia https://github.com/${GH_USER}/${TARGET_REPO}..."
+        git push --force github "refs/tags/${CI_COMMIT_TAG}:refs/tags/${CI_COMMIT_TAG}"
+      else
+        echo "🚀 Sincronizando rama ${CI_DEFAULT_BRANCH} y tags hacia https://github.com/${GH_USER}/${TARGET_REPO}..."
+        git push --force github "HEAD:refs/heads/${CI_DEFAULT_BRANCH}" --tags
+      fi
+
 

@@ -1,5 +1,7 @@
 # Contexto de Proyecto: jg_plugin_conversational
 
+**Estado:** Operativo / Sincronización automática de *mirror* público hacia `https://github.com/cabocom/jg_plugin_conversational` vía GitLab CI/CD (`workspace#8`).
+
 ## 1. Visión y Propósito
 
 `jg_plugin_conversational` es un componente de extensión del ecosistema `javiergalvez-ia` que proporciona capacidades de interacción conversacional en lenguaje natural al agente cognitivo (`jg_agente`).

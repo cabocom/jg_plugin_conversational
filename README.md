@@ -1,3 +1,5 @@
+> ⚠️ **Nota:** Este repositorio es un *mirror* público sincronizado automáticamente desde [GitLab](https://gitlab.com/javiergalvez-ia). El desarrollo activo, pipelines CI/CD, *issues* y discusiones técnicas se gestionan en https://gitlab.com/javiergalvez-ia
+
 # jg_plugin_conversational
 
 Plugin conversacional oficial (clima y noticias RSS) para la plataforma **jg_agente**, desarrollado y distribuido de forma desacoplada utilizando los contratos formales de **`jg-agente-sdk`**.
