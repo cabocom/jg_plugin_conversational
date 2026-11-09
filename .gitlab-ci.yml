@@ -106,7 +106,9 @@ build:docker:
 # ==========================================
 sync_to_github:
   stage: deploy
-  image: alpine/git:latest
+  image:
+    name: alpine/git:latest
+    entrypoint: [""]
   variables:
     GIT_STRATEGY: clone
     GIT_DEPTH: "0"
