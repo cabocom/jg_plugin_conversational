@@ -129,8 +129,19 @@ sync_to_github:
     - git remote add github "https://${GH_USER}:${GITHUB_TOKEN}@github.com/${GH_USER}/${TARGET_REPO}.git"
     - git fetch origin --tags --force
     - |
+      MIRROR_NOTE="> ⚠️ **Nota:** Este repositorio es un *mirror* público sincronizado automáticamente desde [GitLab](https://gitlab.com/javiergalvez-ia). El desarrollo activo, pipelines CI/CD, *issues* y discusiones técnicas se gestionan en https://gitlab.com/javiergalvez-ia"
+      if [ -f "README.md" ]; then
+        echo "$MIRROR_NOTE" > README.tmp
+        echo "" >> README.tmp
+        cat README.md >> README.tmp
+        mv README.tmp README.md
+        git add README.md
+        git commit -m "docs: add GitLab mirror notice for GitHub [skip ci]" || true
+      fi
+    - |
       if [ -n "${CI_COMMIT_TAG:-}" ]; then
         echo "🏷️ Sincronizando tag ${CI_COMMIT_TAG} hacia https://github.com/${GH_USER}/${TARGET_REPO}..."
+        git tag -f "${CI_COMMIT_TAG}"
         git push --force github "refs/tags/${CI_COMMIT_TAG}:refs/tags/${CI_COMMIT_TAG}"
       else
         echo "🚀 Sincronizando rama ${CI_DEFAULT_BRANCH} y tags hacia https://github.com/${GH_USER}/${TARGET_REPO}..."
