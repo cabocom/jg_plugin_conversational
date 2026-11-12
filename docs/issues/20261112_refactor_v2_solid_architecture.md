@@ -21,3 +21,4 @@
 ## 3. Verificación
 - 25 tests unitarios PASARON al 100% en 0.23s (`pytest`).
 - Linters `ruff check .` y `ruff format --check .` superados sin errores.
+
