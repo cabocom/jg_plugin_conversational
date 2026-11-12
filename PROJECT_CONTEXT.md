@@ -1,6 +1,8 @@
 # Contexto de Proyecto: jg_plugin_conversational
 
-**Estado:** Operativo / Sincronización automática de *mirror* público hacia `https://github.com/cabocom/jg_plugin_conversational` vía GitLab CI/CD (`workspace#8`).
+**Versión:** 2.0.0  
+**Fecha:** 12 de noviembre de 2026  
+**Estado:** Refactorización estructural v2.0 SOLID completada (jg_plugin_conversational#1). Modularización de `ssrf_guard.py` (<300 LOC) con extracción de `ssrf_rules.py` y `ssrf_transport.py`. Sincronización automática de *mirror* público hacia `https://github.com/cabocom/jg_plugin_conversational` vía GitLab CI/CD (`workspace#8`).
 
 ## 1. Visión y Propósito
 

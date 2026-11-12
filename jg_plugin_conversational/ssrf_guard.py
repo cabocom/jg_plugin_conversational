@@ -1,77 +1,33 @@
 """Módulo autónomo de protección y mitigación de Server-Side Request Forgery (SSRF).
 
 Proporciona validación estricta de URLs, resolución DNS segura y transporte HTTP
-con mitigación anti-SSRF y DNS Pinning para jg_plugin_conversational sin depender
-del core de jg_agente.
+con mitigación anti-SSRF y DNS Pinning para jg_plugin_conversational.
 """
+
+from __future__ import annotations
 
 import ipaddress
 import logging
 import socket
-import ssl
 import threading
 from collections.abc import Sequence
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
-import httpcore
-import httpx
-from httpcore._backends.sync import SyncBackend
+from jg_plugin_conversational.ssrf_rules import (
+    DEFAULT_ALLOWED_SCHEMES,
+    DEFAULT_BLOCKED_HOSTNAMES,
+    DEFAULT_BLOCKED_NETWORKS,
+    SSRFValidationError,
+    check_ip_blocked,
+)
+from jg_plugin_conversational.ssrf_transport import (
+    SSRFSafeSyncBackend,
+    SSRFSafeTransport,
+    create_ssrf_safe_client,
+)
 
 logger = logging.getLogger("jg_plugin_conversational.ssrf_guard")
-
-
-class SSRFValidationError(ValueError):
-    """Excepción lanzada cuando una URL, IP o destino vulnera la política anti-SSRF."""
-
-    def __init__(self, message: str, target: str | None = None) -> None:
-        super().__init__(message)
-        self.target = target
-
-
-DEFAULT_BLOCKED_NETWORKS: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = [
-    # IPv4 Loopback
-    ipaddress.ip_network("127.0.0.0/8"),
-    # IPv4 Link-Local / Metadata Services
-    ipaddress.ip_network("169.254.0.0/16"),
-    # IPv4 Redes Privadas (RFC 1918)
-    ipaddress.ip_network("10.0.0.0/8"),
-    ipaddress.ip_network("172.16.0.0/12"),
-    ipaddress.ip_network("192.168.0.0/16"),
-    # IPv4 Especiales y Reservadas
-    ipaddress.ip_network("0.0.0.0/8"),
-    ipaddress.ip_network("100.64.0.0/10"),
-    ipaddress.ip_network("192.0.0.0/24"),
-    ipaddress.ip_network("192.0.2.0/24"),
-    ipaddress.ip_network("198.18.0.0/15"),
-    ipaddress.ip_network("198.51.100.0/24"),
-    ipaddress.ip_network("203.0.113.0/24"),
-    ipaddress.ip_network("224.0.0.0/4"),
-    ipaddress.ip_network("240.0.0.0/4"),
-    ipaddress.ip_network("255.255.255.255/32"),
-    # IPv6 Loopback y Unspecified
-    ipaddress.ip_network("::1/128"),
-    ipaddress.ip_network("::/128"),
-    # IPv6 Link-Local
-    ipaddress.ip_network("fe80::/10"),
-    # IPv6 Unique Local Address (ULA - RFC 4193)
-    ipaddress.ip_network("fc00::/7"),
-    # IPv6 Multicast y Documentación
-    ipaddress.ip_network("ff00::/8"),
-    ipaddress.ip_network("2001:db8::/32"),
-]
-
-DEFAULT_BLOCKED_HOSTNAMES: set[str] = {
-    "localhost",
-    "localhost.localdomain",
-    "ip6-localhost",
-    "ip6-loopback",
-    "metadata.google.internal",
-    "metadata",
-    "instance-data",
-}
-
-DEFAULT_ALLOWED_SCHEMES: set[str] = {"http", "https"}
 
 
 class SSRFGuard:
@@ -118,21 +74,7 @@ class SSRFGuard:
         """Verifica si una IP está en rangos no autorizados."""
         if self.is_ip_allowed_explicitly(ip):
             return False, None
-
-        for blocked_net in DEFAULT_BLOCKED_NETWORKS:
-            if ip in blocked_net:
-                is_private_rfc1918 = blocked_net in (
-                    ipaddress.ip_network("10.0.0.0/8"),
-                    ipaddress.ip_network("172.16.0.0/12"),
-                    ipaddress.ip_network("192.168.0.0/16"),
-                    ipaddress.ip_network("fc00::/7"),
-                )
-                if self.allow_private_networks and is_private_rfc1918:
-                    continue
-
-                return True, f"IP {ip} bloqueada por pertenecer a rango restringido {blocked_net}"
-
-        return False, None
+        return check_ip_blocked(ip, self.allow_private_networks)
 
     def is_host_allowed_explicitly(self, hostname: str) -> bool:
         """Verifica si el hostname o un comodín de dominio está en la allowlist."""
@@ -341,123 +283,14 @@ def get_ssrf_validator() -> SSRFGuard:
     return _default_guard
 
 
-class SSRFSafeSyncBackend(SyncBackend):
-    """Backend sincrónico de red para httpcore con protección SSRF y DNS Pinning a nivel TCP."""
-
-    def __init__(
-        self,
-        dns_pin_map: dict[str, str] | None = None,
-        validator: SSRFGuard | None = None,
-    ) -> None:
-        super().__init__()
-        self.dns_pin_map = dns_pin_map or {}
-        self.validator = validator or get_ssrf_validator()
-
-    def connect_tcp(
-        self,
-        host: str,
-        port: int,
-        timeout: float | None = None,
-        local_address: str | None = None,
-        socket_options: Any = None,
-    ) -> Any:
-        target_host = host
-        host_lower = host.lower()
-
-        if host_lower in self.dns_pin_map:
-            target_host = self.dns_pin_map[host_lower]
-        else:
-            is_literal_ip = False
-            try:
-                ipaddress.ip_address(host)
-                is_literal_ip = True
-            except ValueError:
-                is_literal_ip = False
-
-            if (
-                not is_literal_ip
-                and self.validator.enforce
-                and not self.validator.is_host_allowed_explicitly(host_lower)
-            ):
-                resolved = self.validator.resolve_host(host, port)
-                if not resolved:
-                    raise SSRFValidationError(
-                        f"No se pudo resolver la dirección para el host '{host}'",
-                        target=host,
-                    )
-                for ip_str in resolved:
-                    ip_obj = ipaddress.ip_address(ip_str)
-                    blocked, reason = self.validator.is_ip_blocked(ip_obj)
-                    if blocked:
-                        raise SSRFValidationError(
-                            f"Resolución de host '{host}' apunta a IP prohibida {ip_str}: {reason}",
-                            target=host,
-                        )
-                sorted_ips = sorted(resolved, key=lambda x: (":" in x, x))
-                target_host = sorted_ips[0]
-
-        if self.validator.enforce:
-            target_ip_obj = None
-            try:
-                target_ip_obj = ipaddress.ip_address(target_host)
-            except ValueError:
-                target_ip_obj = None
-
-            if target_ip_obj is not None:
-                blocked, reason = self.validator.is_ip_blocked(target_ip_obj)
-                if blocked:
-                    raise SSRFValidationError(
-                        f"Conexión TCP bloqueada a IP prohibida {target_host}: {reason}",
-                        target=target_host,
-                    )
-
-        return super().connect_tcp(
-            host=target_host,
-            port=port,
-            timeout=timeout,
-            local_address=local_address,
-            socket_options=socket_options,
-        )
-
-
-class SSRFSafeTransport(httpx.HTTPTransport):
-    """Transporte HTTP sincrónico para httpx con mitigación activa contra SSRF y DNS Rebinding."""
-
-    def __init__(
-        self,
-        dns_pin_map: dict[str, str] | None = None,
-        validator: SSRFGuard | None = None,
-        verify: ssl.SSLContext | str | bool = True,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(verify=verify, **kwargs)
-        self._dns_pin_map = dns_pin_map or {}
-        self._validator = validator or get_ssrf_validator()
-        self._pool = httpcore.ConnectionPool(
-            ssl_context=getattr(self._pool, "_ssl_context", None),
-            max_connections=getattr(self._pool, "_max_connections", 10),
-            max_keepalive_connections=getattr(self._pool, "_max_keepalive_connections", None),
-            keepalive_expiry=getattr(self._pool, "_keepalive_expiry", None),
-            http1=getattr(self._pool, "_http1", True),
-            http2=getattr(self._pool, "_http2", False),
-            network_backend=SSRFSafeSyncBackend(
-                dns_pin_map=self._dns_pin_map,
-                validator=self._validator,
-            ),
-        )
-
-
-def create_ssrf_safe_client(
-    dns_pin_map: dict[str, str] | None = None,
-    validator: SSRFGuard | None = None,
-    timeout: float | httpx.Timeout = 10.0,
-    verify: ssl.SSLContext | str | bool = True,
-    **kwargs: Any,
-) -> httpx.Client:
-    """Crea un cliente httpx sincrónico seguro contra SSRF y DNS Rebinding."""
-    transport = SSRFSafeTransport(
-        dns_pin_map=dns_pin_map,
-        validator=validator,
-        verify=verify,
-    )
-    return httpx.Client(transport=transport, timeout=timeout, **kwargs)
+__all__ = [
+    "DEFAULT_ALLOWED_SCHEMES",
+    "DEFAULT_BLOCKED_HOSTNAMES",
+    "DEFAULT_BLOCKED_NETWORKS",
+    "SSRFGuard",
+    "SSRFSafeSyncBackend",
+    "SSRFSafeTransport",
+    "SSRFValidationError",
+    "create_ssrf_safe_client",
+    "get_ssrf_validator",
+]
